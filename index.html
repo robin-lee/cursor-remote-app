@@ -163,8 +163,6 @@
   .human .imgs { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 6px; margin-top: 4px; max-width: 88%; margin-left: auto; }
   .assistant code[data-file] { color: #6cb6ff; text-decoration: underline; text-decoration-color: #6cb6ff66; text-underline-offset: 2px; }
   .tool[data-file] .txt::before { content: "📄 "; }
-  img.thumb { display: block; max-width: 100%; max-height: 50vh; margin: 6px 0; border-radius: 6px; background: #fff1; cursor: pointer; }
-  .human .imgs { flex-direction: column; align-items: flex-end; }
   #viewer { position: fixed; inset: 0; z-index: 25; background: #1e1e1e; display: none; flex-direction: column;
             padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left); }
   #viewer.open { display: flex; }
@@ -528,7 +526,6 @@ function connect() {
   let rejected = false;
   ws.onclose = async () => {
     $('dot').className = '';
-    for (const [k, v] of thumbs) if (v === null) thumbs.delete(k);
     if (!authed) {
       // boot() asks /api/me whether the device was removed or needs 2FA again.
       await sleep(rejected ? 0 : 2000);
@@ -576,7 +573,6 @@ function connect() {
     else if (m.t === 'params') showParams(m);
     else if (m.t === 'changes') showChanges(m);
     else if (m.t === 'file') showFile(m);
-    else if (m.t === 'thumb') onThumb(m);
     else if (m.t === 'status') status(m.msg, m.ok);
   };
 }
@@ -927,8 +923,8 @@ function renderItem(it) {
   if (it.k === 'human') {
     el.innerHTML = `<div class="bubble">${esc(it.t || '')}</div>`;
     if (it.img?.length) el.insertAdjacentHTML('beforeend', `<div class="imgs">${it.img.map((r, n) => r.file
-      ? `<code data-img data-file="${esc(r.file)}">🖼 ${esc(r.file.split('/').pop())}</code>`
-      : `<code data-img data-url="${esc(r.url)}">🖼 图片 ${n + 1}</code>`).join('')}</div>`);
+      ? `<code data-file="${esc(r.file)}">🖼 ${esc(r.file.split('/').pop())}</code>`
+      : `<code data-url="${esc(r.url)}">🖼 图片 ${n + 1}</code>`).join('')}</div>`);
   }
   // it.h comes from the whitelist sanitizer in server.mjs (pageHelpers.clean): plain tags only, text escaped.
   else if (it.k === 'assistant') el.innerHTML = it.h || '';
@@ -938,35 +934,7 @@ function renderItem(it) {
   }
   else el.textContent = it.t || '';
   if (it.b && it.k !== 'human') el.insertAdjacentHTML('beforeend', `<div class="btns">${buttonsHtml(it.b, it.i)}</div>`);
-  addThumbs(el);
   return el;
-}
-
-// Image links get an inline preview: web images load directly, local ones come from the relay once and are cached.
-const thumbs = new Map(); // ref -> data URL, null while loading, false if it failed
-function addThumbs(root) {
-  for (const c of root.querySelectorAll('code[data-img]')) {
-    if (c.nextElementSibling?.classList.contains('thumb')) continue;
-    const ref = c.dataset.file, url = c.dataset.url;
-    const src = url ? (/^https:\/\//i.test(url) ? url : null) : thumbs.get(ref);
-    if (src) {
-      const img = new Image();
-      img.className = 'thumb';
-      img.alt = c.textContent;
-      if (ref) img.dataset.file = ref; else img.dataset.url = url;
-      img.onerror = () => img.remove();
-      img.onload = () => { if (nearBottom()) list.scrollTop = list.scrollHeight; };
-      img.src = src;
-      c.after(img);
-    } else if (ref && !thumbs.has(ref)) {
-      thumbs.set(ref, null);
-      send({ t: 'thumb', path: ref });
-    }
-  }
-}
-function onThumb(m) {
-  thumbs.set(m.ref, m.image || false);
-  if (m.image) addThumbs(itemsEl);
 }
 
 const nearBottom = () => list.scrollHeight - list.scrollTop - list.clientHeight < 120;
