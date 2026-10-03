@@ -158,7 +158,9 @@
   a.opt { color: #e6e6e6; text-decoration: none; background: #2d2d2d; border: 1px solid #3c3c3c; border-radius: 8px; box-sizing: border-box; }
 
   /* file links + viewer */
-  .assistant code[data-file], .tool[data-file] { cursor: pointer; }
+  .assistant code[data-file], .tool[data-file], [data-url], .imgs code { cursor: pointer; }
+  .assistant code[data-url], .imgs code { color: #6cb6ff; text-decoration: underline; text-decoration-color: #6cb6ff66; text-underline-offset: 2px; }
+  .human .imgs { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 6px; margin-top: 4px; max-width: 88%; margin-left: auto; }
   .assistant code[data-file] { color: #6cb6ff; text-decoration: underline; text-decoration-color: #6cb6ff66; text-underline-offset: 2px; }
   .tool[data-file] .txt::before { content: "📄 "; }
   #viewer { position: fixed; inset: 0; z-index: 25; background: #1e1e1e; display: none; flex-direction: column;
@@ -918,7 +920,12 @@ function buttonsHtml(labels, item) {
 function renderItem(it) {
   const el = document.createElement('div');
   el.className = 'msg ' + it.k;
-  if (it.k === 'human') el.innerHTML = `<div class="bubble">${esc(it.t || '')}</div>`;
+  if (it.k === 'human') {
+    el.innerHTML = `<div class="bubble">${esc(it.t || '')}</div>`;
+    if (it.img?.length) el.insertAdjacentHTML('beforeend', `<div class="imgs">${it.img.map((r, n) => r.file
+      ? `<code data-file="${esc(r.file)}">🖼 ${esc(r.file.split('/').pop())}</code>`
+      : `<code data-url="${esc(r.url)}">🖼 图片 ${n + 1}</code>`).join('')}</div>`);
+  }
   // it.h comes from the whitelist sanitizer in server.mjs (pageHelpers.clean): plain tags only, text escaped.
   else if (it.k === 'assistant') el.innerHTML = it.h || '';
   else if (it.k === 'tool') {
@@ -1086,6 +1093,8 @@ document.addEventListener('click', async e => {
   const b = e.target.closest('button[data-item]');
   const f = !b && e.target.closest('#items [data-file]');
   if (f) return openFile(f.dataset.file);
+  const u = !b && e.target.closest('#items [data-url]');
+  if (u) return openImageUrl(u.dataset.url);
   if (!b) return;
   if (RISKY.test(b.textContent.trim()) && !await ask(`确定要点「${b.textContent.trim()}」吗？`, b.textContent.trim())) return;
   send({ t: 'click', item: b.dataset.item, n: Number(b.dataset.n) });
@@ -1110,6 +1119,22 @@ function openFile(ref) {
     history.pushState({ viewer: true }, '');
   }
   send({ t: 'file', path: ref });
+}
+
+function openImageUrl(url) {
+  if (!/^https?:\/\//i.test(url)) return;
+  $('vName').textContent = url.split('/').pop().split('?')[0] || '图片';
+  $('vPath').textContent = '\u200e' + url;
+  const body = $('vBody');
+  body.innerHTML = '';
+  const img = new Image();
+  img.onerror = () => { body.innerHTML = '<div class="note err">图片加载失败</div>'; };
+  img.src = url;
+  body.append(img);
+  if (!$('viewer').classList.contains('open')) {
+    $('viewer').classList.add('open');
+    history.pushState({ viewer: true }, '');
+  }
 }
 
 function showFile(m) {
