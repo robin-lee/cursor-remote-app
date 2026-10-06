@@ -161,7 +161,8 @@
   .assistant code[data-file], .tool[data-file], [data-url], .imgs code { cursor: pointer; }
   .assistant code[data-url], .imgs code { color: #6cb6ff; text-decoration: underline; text-decoration-color: #6cb6ff66; text-underline-offset: 2px; }
   .human .imgs { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 6px; margin-top: 4px; max-width: 88%; margin-left: auto; }
-  .assistant code[data-file] { color: #6cb6ff; text-decoration: underline; text-decoration-color: #6cb6ff66; text-underline-offset: 2px; }
+  .assistant code[data-file], .tool .files code[data-file] { color: #6cb6ff; text-decoration: underline; text-decoration-color: #6cb6ff66; text-underline-offset: 2px; }
+  .tool .files { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 4px; }
   .tool[data-file] .txt::before { content: "📄 "; }
   #viewer { position: fixed; inset: 0; z-index: 25; background: #1e1e1e; display: none; flex-direction: column;
             padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left); }
@@ -930,7 +931,9 @@ function renderItem(it) {
   else if (it.k === 'assistant') el.innerHTML = it.h || '';
   else if (it.k === 'tool') {
     el.innerHTML = `<div class="txt">${esc(it.t || '')}</div>`;
-    if (it.f) el.dataset.file = it.f;
+    const files = it.files?.length ? it.files : (it.f ? [it.f] : []);
+    if (files.length > 1) el.insertAdjacentHTML('beforeend', `<div class="files">${files.map(f => `<code data-file="${esc(f)}">${esc(f.split('/').pop())}</code>`).join('')}</div>`);
+    else if (files.length) el.dataset.file = files[0];
   }
   else el.textContent = it.t || '';
   if (it.b && it.k !== 'human') el.insertAdjacentHTML('beforeend', `<div class="btns">${buttonsHtml(it.b, it.i)}</div>`);
